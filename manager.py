@@ -4,18 +4,16 @@ import logging
 
 logging.basicConfig(level=logging.DEBUG, format='%(name)s: %(message)s')
 
-class HandlerManager:
+class BaseManager(object):
 
     def __init__(self, port, bind_address):
         self.logger = logging.getLogger('HandlerManager')
         self.logger.debug('__init__')
         self.port = port or "5000"
         self.bind_address = bind_address or "127.0.0.1"
-        self.managers = []
 
         self.context = None
         self.socket = None
-        return
 
     def setup(self):
         self.logger.debug('setup')
@@ -25,15 +23,22 @@ class HandlerManager:
     def read(self):
         return self.socket.recv_json()
 
-    def pong(self):
-        pass
-
     def send_msg(self, payload):
         self.socket.send_json(payload)
 
+class HandlerManager(BaseManager):
+
+    def __init__(self, port, bind_address):
+
+        BaseManager.__init__(self, port, bind_address)
+
+        self.managers = []
+
+    def pong(self):
+        pass
+
     def handle(self):
         message = self.read()
-        print(self.managers)
 
         if message["msg_type"] == "register":
             if message["id"] in self.managers:
@@ -42,6 +47,17 @@ class HandlerManager:
                 self.managers.append(message["id"])
                 self.send_msg({"reply": True})
 
+
+class DroneManager(BaseManager):
+
+    def __init__(self, port, bind_address):
+
+        BaseManager.__init__(self, port, bind_address)
+
+        self.drones = []
+
+    def handle(self):
+        pass
 
 if __name__ == '__main__':
 
