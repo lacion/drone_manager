@@ -6,11 +6,11 @@ logging.basicConfig(level=logging.DEBUG, format='%(name)s: %(message)s')
 
 class BaseManager(object):
 
-    def __init__(self, port, bind_address):
+    def __init__(self, port="5000", bind_address="127.0.0.1"):
         self.logger = logging.getLogger('HandlerManager')
         self.logger.debug('__init__')
-        self.port = port or "5000"
-        self.bind_address = bind_address or "127.0.0.1"
+        self.port = port
+        self.bind_address = bind_address
 
         self.context = None
         self.socket = None
@@ -35,7 +35,7 @@ class HandlerManager(BaseManager):
         self.managers = []
 
     def pong(self):
-        pass
+        self.send_msg({"reply": True})
 
     def handle(self):
         message = self.read()
@@ -46,6 +46,9 @@ class HandlerManager(BaseManager):
             else:
                 self.managers.append(message["id"])
                 self.send_msg({"reply": True})
+
+        if message["msg_type"] == "ping":
+            self.pong()
 
 
 class DroneManager(BaseManager):
