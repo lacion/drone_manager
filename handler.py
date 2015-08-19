@@ -1,61 +1,58 @@
-import time
-import logging
 import zmq
-import argparse
+import logging
+import threading
 import sys
+import argparse
+import time
 
-from manager import BaseManager
+class Handler(threading.Thread):
+    manager = "MANAGER"
+    def __init__(self, port="5000", bind_address="127.0.0.1", hid=1):
+        threading.Thread.__init__(self)
+        self.logger = logging.getLogger('Handler_{0}'.format(hid))
+        self.port = port
+        self.bind_address = bind_address
 
-logging.basicConfig(level=logging.DEBUG, format='%(name)s: %(message)s')
-
-class Handler(BaseManager):
-
-    def __init__(self, port, bind_address, handler_id):
-        BaseManager.__init__(self, port, bind_address)
-        self.logger = logging.getLogger('Handler')
-        self.id = handler_id
+        self.hid = "HANDLER{0}".format(hid)
+        self.socket = None
+        self.poller = None
 
     def setup(self):
         self.logger.debug('setup')
         self.socket = zmq.Context().socket(zmq.REQ)
+        self.socket.setsockopt(zmq.IDENTITY, self.hid.encode('utf-8'))
         self.socket.connect("tcp://{0}:{1}".format(self.bind_address, self.port))
+        self.poller = zmq.Poller()
+        self.poller.register(self.socket, zmq.POLLIN)
 
-    def register(self):
-        payload = {
-            "id": self.id,
-            "msg_type": "register"
-        }
-        self.send_msg(payload)
-        time.sleep(1)
-        response = self.read()
-        if response["reply"]:
-            self.logger.debug("registered")
+    def send_msg(self, msg):
+        self.socket.send_multipart([self.manager.encode('utf-8'), b"", msg.encode('utf-8')])
 
-    def ping(self):
-        payload = {
-            "id": self.id,
-            "msg_type": "ping"
-        }
-        self.send_msg(payload)
-        time.sleep(3)
-        response = self.read()
-        if response["reply"]:
-            self.logger.debug("received pong from manager")
+    def recv_msg(self):
+        return self.socket.recv_multipart()
 
+    def run(self):
+        self.setup()
+        self.send_msg("register")
+        while True:
+            sockets = dict(self.poller.poll(5000))
+            if self.socket in sockets and sockets[self.socket] == zmq.POLLIN:
+                msg = self.recv_msg()
+                self.send_msg("ping")
+                time.sleep(3)
 def check_arg(args=None):
     parser = argparse.ArgumentParser(description='Drone handler service')
-    parser.add_argument('-M', '--manager_address',  help='Manager host:port', required='True', default='127.0.0.1:5000')
+    parser.add_argument('-M', '--manager',  help='Manager host:port', required='True', default='127.0.0.1:5000')
+    parser.add_argument('-I', '--id',  help='this handler id', required='True', default='1')
 
     results = parser.parse_args(args)
-    return results.manager_address.split(":")
+    return results.manager.split(":"), results.manager.split(":"), results.id
+
 
 if __name__ == '__main__':
 
-    manager_host = check_arg(sys.argv[1:])
+    manager_host, maneger_host, hid = check_arg(sys.argv[1:])
 
-    handler = Handler(5000, "127.0.0.1", 1)
-    handler.setup()
-    handler.register()
+    handler = Handler(manager_host[1], maneger_host[0], hid)
 
-    while True:
-        handler.ping()
+    handler.start()
