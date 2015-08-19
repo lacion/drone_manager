@@ -23,7 +23,7 @@ for ubuntu:
 
 development was done using python3, virtualenv and pip to handle dependencies
 
-    virtualenve -p python3 venv
+    virtualenv -p python3 venv
     source venv/bin/activate
     pip install -r requirements.txt
 
