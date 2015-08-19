@@ -6,7 +6,7 @@ import argparse
 import time
 
 class Handler(threading.Thread):
-    manager = "MANAGER"
+    manager = "HMANAGER"
     def __init__(self, port="5000", bind_address="127.0.0.1", hid=1):
         threading.Thread.__init__(self)
         self.logger = logging.getLogger('Handler_{0}'.format(hid))
